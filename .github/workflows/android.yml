@@ -2,9 +2,10 @@ name: Android CI
 
 on:
   push:
-    branches: [ dev ]
+   branches: [ dev ]
   pull_request:
     branches: [ dev ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,5 +24,22 @@ jobs:
       run: git submodule update --init --recursive
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
+    - name: Generate signed APK
+      run: ./gradlew assembleRelease --stacktrace
+
+    - name: Sign APK with keystore
+      uses: r0adkll/sign-android-release@v1.0.4
+      id: sign_app
+      with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+      env:
+          BUILD_TOOLS_VERSION: "30.0.2"
+    - name: Update apk
+      uses: actions/upload-artifact@v2
+      with:
+          name: Upload signed app bundle
+          path: ${{steps.sign_app.outputs.signedReleaseFile}}
